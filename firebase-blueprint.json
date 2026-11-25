@@ -1,0 +1,110 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated developer profile, preferences, XP, and coding statistics.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the owner." },
+        "displayName": { "type": "string", "description": "Display name of the developer." },
+        "email": { "type": "string", "description": "Optional email address of the developer." },
+        "preferredLanguage": { "type": "string", "enum": ["th", "en"], "description": "UI language preference." },
+        "xp": { "type": "integer", "description": "Accumulated experience points." },
+        "streakDays": { "type": "integer", "description": "Consecutive coding days streak." },
+        "totalExecutions": { "type": "integer", "description": "Total code executions performed." },
+        "lastActiveDate": { "type": "string", "description": "Last active ISO date key (YYYY-MM-DD)." },
+        "favoriteLanguages": { "type": "array", "description": "Bounded list of favorite programming languages." },
+        "achievements": { "type": "array", "description": "Unlocked achievement badge IDs." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": ["userId", "displayName", "preferredLanguage", "xp", "streakDays", "totalExecutions", "createdAt", "updatedAt"]
+    },
+    "CloudProject": {
+      "title": "CloudProject",
+      "description": "Synchronized coding project metadata belonging to a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "name": { "type": "string", "description": "Project display name." },
+        "description": { "type": "string", "description": "Short project summary." },
+        "templateType": { "type": "string", "description": "Project category/template identifier." },
+        "primaryLanguage": { "type": "string", "description": "Primary language identifier." },
+        "fileCount": { "type": "integer", "description": "Number of files in the project." },
+        "gitBranch": { "type": "string", "description": "Active local Git branch name." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": ["userId", "name", "description", "templateType", "primaryLanguage", "fileCount", "gitBranch", "createdAt", "updatedAt"]
+    },
+    "CloudProjectFile": {
+      "title": "CloudProjectFile",
+      "description": "Source file belonging to a synchronized user project.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "projectId": { "type": "string", "description": "Parent project document ID." },
+        "path": { "type": "string", "description": "Relative file path inside the project." },
+        "name": { "type": "string", "description": "File name including extension." },
+        "language": { "type": "string", "description": "Language key for syntax highlighting and execution." },
+        "content": { "type": "string", "description": "Source code text content." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": ["userId", "projectId", "path", "name", "language", "content", "createdAt", "updatedAt"]
+    },
+    "CloudCourseProgress": {
+      "title": "CloudCourseProgress",
+      "description": "Per-course learning progress, quiz score, challenges, and final project status.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "courseId": { "type": "string", "description": "Course identifier." },
+        "completedLessonIds": { "type": "array", "description": "Completed lesson IDs." },
+        "completedChallengeIds": { "type": "array", "description": "Completed coding challenge IDs." },
+        "bestQuizScore": { "type": "integer", "description": "Highest quiz percentage (0-100)." },
+        "finalProjectDone": { "type": "boolean", "description": "Whether the final project was completed." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": ["userId", "courseId", "completedLessonIds", "completedChallengeIds", "bestQuizScore", "finalProjectDone", "createdAt", "updatedAt"]
+    },
+    "CloudDailyActivity": {
+      "title": "CloudDailyActivity",
+      "description": "Daily coding activity counters for user dashboard analytics.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "dateKey": { "type": "string", "description": "Date key in YYYY-MM-DD format." },
+        "editsCount": { "type": "integer", "description": "File edits recorded on this day." },
+        "runsCount": { "type": "integer", "description": "Code executions recorded on this day." },
+        "lessonsCount": { "type": "integer", "description": "Lessons completed on this day." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": ["userId", "dateKey", "editsCount", "runsCount", "lessonsCount", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile and coding statistics."
+    },
+    "/users/{userId}/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/CloudProject" },
+      "description": "User-owned coding projects."
+    },
+    "/users/{userId}/projects/{projectId}/files/{fileId}": {
+      "schema": { "$ref": "#/entities/CloudProjectFile" },
+      "description": "Source files inside a user-owned project."
+    },
+    "/users/{userId}/learningProgress/{courseId}": {
+      "schema": { "$ref": "#/entities/CloudCourseProgress" },
+      "description": "User learning progress per course."
+    },
+    "/users/{userId}/dailyActivity/{dateKey}": {
+      "schema": { "$ref": "#/entities/CloudDailyActivity" },
+      "description": "Daily coding activity statistics."
+    }
+  }
+}

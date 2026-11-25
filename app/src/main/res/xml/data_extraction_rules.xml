@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="com.google.firebase.appcheck.debug.store" />
+        <exclude domain="database" path="codeverse_user_sandbox.db" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="com.google.firebase.appcheck.debug.store" />
+    </device-transfer>
+</data-extraction-rules>

@@ -1,0 +1,199 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidBoundedStringList(arr, maxLen) {
+      return arr is list && arr.size() <= maxLen && (arr.size() == 0 || arr[0] is string);
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 200)) &&
+             data.preferredLanguage is string && data.preferredLanguage in ['th', 'en'] &&
+             data.xp is int && data.xp >= 0 && data.xp <= 10000000 &&
+             data.streakDays is int && data.streakDays >= 0 && data.streakDays <= 10000 &&
+             data.totalExecutions is int && data.totalExecutions >= 0 && data.totalExecutions <= 10000000 &&
+             (!('lastActiveDate' in data) || (data.lastActiveDate is string && data.lastActiveDate.size() <= 32)) &&
+             (!('favoriteLanguages' in data) || isValidBoundedStringList(data.favoriteLanguages, 16)) &&
+             (!('achievements' in data) || isValidBoundedStringList(data.achievements, 32)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidCloudProject(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.description is string && data.description.size() <= 500 &&
+             data.templateType is string && data.templateType.size() >= 1 && data.templateType.size() <= 64 &&
+             data.primaryLanguage is string && data.primaryLanguage.size() >= 1 && data.primaryLanguage.size() <= 32 &&
+             data.fileCount is int && data.fileCount >= 0 && data.fileCount <= 500 &&
+             data.gitBranch is string && data.gitBranch.size() >= 1 && data.gitBranch.size() <= 64 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidCloudProjectFile(data, userId, projectId) {
+      return data.userId is string && data.userId == userId &&
+             data.projectId is string && data.projectId == projectId &&
+             data.path is string && data.path.size() >= 1 && data.path.size() <= 256 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 128 &&
+             data.language is string && data.language.size() >= 1 && data.language.size() <= 32 &&
+             data.content is string && data.content.size() <= 300000 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidCourseProgress(data, userId, courseId) {
+      return data.userId is string && data.userId == userId &&
+             data.courseId is string && data.courseId == courseId &&
+             isValidBoundedStringList(data.completedLessonIds, 50) &&
+             isValidBoundedStringList(data.completedChallengeIds, 50) &&
+             data.bestQuizScore is int && data.bestQuizScore >= 0 && data.bestQuizScore <= 100 &&
+             data.finalProjectDone is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidDailyActivity(data, userId, dateKey) {
+      return data.userId is string && data.userId == userId &&
+             data.dateKey is string && data.dateKey == dateKey &&
+             data.editsCount is int && data.editsCount >= 0 && data.editsCount <= 100000 &&
+             data.runsCount is int && data.runsCount >= 0 && data.runsCount <= 100000 &&
+             data.lessonsCount is int && data.lessonsCount >= 0 && data.lessonsCount <= 1000 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'preferredLanguage', 'xp', 'streakDays', 'totalExecutions', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'preferredLanguage', 'xp', 'streakDays', 'totalExecutions', 'lastActiveDate', 'favoriteLanguages', 'achievements', 'createdAt', 'updatedAt']) &&
+                       isValidUserProfile(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidUserProfile(incoming(), userId) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'preferredLanguage', 'xp', 'streakDays', 'totalExecutions', 'lastActiveDate', 'favoriteLanguages', 'achievements', 'updatedAt']);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /projects/{projectId} {
+        allow get: if isOwner(userId) && isValidId(projectId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(projectId) &&
+                         incoming().keys().hasAll(['userId', 'name', 'description', 'templateType', 'primaryLanguage', 'fileCount', 'gitBranch', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'name', 'description', 'templateType', 'primaryLanguage', 'fileCount', 'gitBranch', 'createdAt', 'updatedAt']) &&
+                         isValidCloudProject(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(projectId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidCloudProject(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'templateType', 'primaryLanguage', 'fileCount', 'gitBranch', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(projectId);
+
+        match /files/{fileId} {
+          allow get: if isOwner(userId) && isValidId(projectId) && isValidId(fileId);
+          allow list: if isOwner(userId);
+
+          allow create: if isOwner(userId) &&
+                           isValidId(projectId) &&
+                           isValidId(fileId) &&
+                           exists(/databases/$(database)/documents/users/$(userId)/projects/$(projectId)) &&
+                           incoming().keys().hasAll(['userId', 'projectId', 'path', 'name', 'language', 'content', 'createdAt', 'updatedAt']) &&
+                           incoming().keys().hasOnly(['userId', 'projectId', 'path', 'name', 'language', 'content', 'createdAt', 'updatedAt']) &&
+                           isValidCloudProjectFile(incoming(), userId, projectId);
+
+          allow update: if isOwner(userId) &&
+                           isValidId(projectId) &&
+                           isValidId(fileId) &&
+                           incoming().userId == existing().userId &&
+                           incoming().projectId == existing().projectId &&
+                           incoming().createdAt == existing().createdAt &&
+                           isValidCloudProjectFile(incoming(), userId, projectId) &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['path', 'name', 'language', 'content', 'updatedAt']);
+
+          allow delete: if isOwner(userId) && isValidId(projectId) && isValidId(fileId);
+        }
+      }
+
+      match /learningProgress/{courseId} {
+        allow get: if isOwner(userId) && isValidId(courseId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(courseId) &&
+                         incoming().keys().hasAll(['userId', 'courseId', 'completedLessonIds', 'completedChallengeIds', 'bestQuizScore', 'finalProjectDone', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'courseId', 'completedLessonIds', 'completedChallengeIds', 'bestQuizScore', 'finalProjectDone', 'createdAt', 'updatedAt']) &&
+                         isValidCourseProgress(incoming(), userId, courseId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(courseId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().courseId == existing().courseId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidCourseProgress(incoming(), userId, courseId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['completedLessonIds', 'completedChallengeIds', 'bestQuizScore', 'finalProjectDone', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(courseId);
+      }
+
+      match /dailyActivity/{dateKey} {
+        allow get: if isOwner(userId) && isValidId(dateKey);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(dateKey) &&
+                         incoming().keys().hasAll(['userId', 'dateKey', 'editsCount', 'runsCount', 'lessonsCount', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'dateKey', 'editsCount', 'runsCount', 'lessonsCount', 'createdAt', 'updatedAt']) &&
+                         isValidDailyActivity(incoming(), userId, dateKey);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(dateKey) &&
+                         incoming().userId == existing().userId &&
+                         incoming().dateKey == existing().dateKey &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidDailyActivity(incoming(), userId, dateKey) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['editsCount', 'runsCount', 'lessonsCount', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(dateKey);
+      }
+    }
+  }
+}

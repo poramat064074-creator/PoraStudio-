@@ -1,0 +1,6 @@
+{
+  "name": "PoraStudio",
+  "description": "PoraStudio — Mobile coding IDE, interactive programming academy, real sandboxed code execution, and Gemini AI coding assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
